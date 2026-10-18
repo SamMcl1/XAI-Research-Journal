@@ -1,0 +1,159 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\begin{document}
+
+\title{Explaining the Flag, Not the Player: A Critical Analysis of SHAP Explanations for Reviewing False Positives in AI Anti-Cheat}
+
+\author{\IEEEauthorblockN{Sam Mcloughlin}
+\IEEEauthorblockA{\textit{Immersive Software Engineering} \\
+\textit{University of Limerick}\\
+Limerick, Ireland \\
+24403822@studentmail.ul.ie}
+\and
+\IEEEauthorblockN{Hugh Feehan}
+\IEEEauthorblockA{\textit{Immersive Software Engineering} \\
+\textit{University of Limerick}\\
+Limerick, Ireland \\
+24405523@studentmail.ul.ie}
+\and
+\IEEEauthorblockN{Danny Quinn}
+\IEEEauthorblockA{\textit{Immersive Software Engineering} \\
+\textit{University of Limerick}\\
+Limerick, Ireland \\
+24422622@studentmail.ul.ie}
+\and
+\IEEEauthorblockN{Andy Cao}
+\IEEEauthorblockA{\textit{Immersive Software Engineering} \\
+\textit{University of Limerick}\\
+Limerick, Ireland \\
+24422703@studentmail.ul.ie}
+}
+
+\maketitle
+
+\begin{abstract}
+Machine learning anti-cheat systems increasingly flag players from behavioural telemetry, and some now attach post-hoc explanations so that a human reviewer can check a flag before an account is banned. This paper asks whether such explanations can be expected to help reviewers recognise false positives. We analyse XGuardian, a server-side aim-assist detector for first-person shooters explained with gradient-based SHAP and TreeSHAP, tracing its pipeline against the authors' released code, and contrast it with a Minecraft detector and a human-grounded evaluation of SHAP. Our analysis finds that the match-level explanation in the default configuration restates the detector score rather than adding evidence, that headline detection metrics do not measure the reviewer outcome that matters, and that the available human-subject evidence is too small to show that explanations reduce false accusations. We argue that explanations are best treated as a tool for locating evidence rather than as evidence of cheating, and we propose a randomised reviewer study to measure their effect on innocent players directly.
+\end{abstract}
+
+\begin{IEEEkeywords}
+explainable AI, SHAP, anti-cheat, false positives, human review, video games
+\end{IEEEkeywords}
+
+% ---------------------------------------------------------------------
+\section{Introduction}
+
+Cheating in online games harms honest players, and developers increasingly use machine learning (ML) to detect it from behaviour rather than from software running on the player's machine~\cite{zhang2026xguardian, sousa2025minecraft}. Behavioural detectors learn statistical patterns associated with cheating, but skilled legitimate play can produce the same patterns. A detector will therefore produce false positives: fair players labelled as cheaters.
+
+A flag is a prediction; a ban is an action taken against a person. A false positive only becomes a false ban if the decision process accepts it. For this reason, recent systems pair detection with post-hoc explanations intended to let a human reviewer inspect \emph{why} a player was flagged~\cite{zhang2026xguardian}. This matches a theme of the course: different stakeholders need different explanations, and an affected individual has a legitimate interest in contesting an automated decision~\cite{doshivelez2017rigorous, gdpr2016}.
+
+We initially compared explaining visual aimbot detection, explaining behavioural false positives, and explainability for adversarial robustness. We chose the second: it applies the course's feature-attribution methods to a decision with clear human stakes, whereas the others needed scarce labelled footage or drifted into adversarial ML. This paper addresses one question: \emph{can SHAP-based explanations be expected to help reviewers recognise false-positive cheating flags, and what evidence currently supports that expectation?}
+
+We contribute (i) a code-verified trace of what each SHAP explanation in XGuardian can tell a reviewer, (ii) an assessment of the gap between detector metrics and reviewer outcomes, and (iii) a proposed study to measure the effect of explanations on false accusations.
+
+% ---------------------------------------------------------------------
+\section{Background and Related Work}
+
+\subsection{Behavioural Anti-Cheat}
+Sousa \textit{et al.}~\cite{sousa2025minecraft} detect aimbot and automining cheats in Minecraft from mouse telemetry (cursor position, velocity, acceleration and clicks), avoiding the kernel-level access that client-side anti-cheat typically requires. Using data from 13 players recorded for 40 minutes each, a 2D convolutional neural network (CNN) and a long short-term memory (LSTM) network reach F1 scores of 99.68\% and 99.43\% respectively.
+The study does not attach explanations to its predictions, and the information available to us (the publisher abstract) does not report a false-positive rate.
+
+XGuardian~\cite{zhang2026xguardian} is a server-side detector for aim assistance in Counter-Strike 2 (CS2). It reconstructs aiming trajectories from the pitch and yaw recorded in replays, classifies short windows around each kill, and aggregates them into a match-level verdict. It is evaluated on 2{,}903 CS2 matches (31{,}971 elimination windows) and transferred to CS:GO and Farlight84. Uniquely among the systems we reviewed, it explains predictions at two levels using SHAP and includes a small study with former professional reviewers.
+
+\subsection{SHAP and LIME}
+SHAP~\cite{lundberg2017unified} attributes a single prediction $f(x)$ to input features using Shapley values from cooperative game theory~\cite{shapley1953value}. For a feature set $F$, the attribution of feature $i$ is
+\begin{equation}
+\phi_i=\sum_{S\subseteq F\setminus\{i\}}\frac{|S|!\,(|F|-|S|-1)!}{|F|!}\big[f_x(S\cup\{i\})-f_x(S)\big],
+\label{eq:shapley}
+\end{equation}
+where $f_x(S)$ is the expected model output when only the features in $S$ are known. The attributions are additive, $f(x)=\phi_0+\sum_i\phi_i$, where the base value $\phi_0$ is the expected output over a background distribution. Exact computation is exponential in $|F|$, so practical explainers approximate it: TreeSHAP computes values efficiently for tree ensembles~\cite{lundberg2020trees}, while GradientExplainer approximates them for differentiable models using expected gradients over sampled background examples~\cite{erion2021expected}. LIME~\cite{ribeiro2016why} instead perturbs the input around one instance and fits a weighted linear surrogate; as seen in the course exercises, its output varies between runs unless the random seed is fixed.
+
+\subsection{Evaluating Explanations with People}
+Doshi-Velez and Kim~\cite{doshivelez2017rigorous} distinguish functionally grounded evaluation (proxy metrics, no humans) from human-grounded and application-grounded evaluation (real users on the real task), arguing that claims about usefulness need the latter. Weerts \textit{et al.}~\cite{weerts2019human} ran such a test for SHAP: 102 participants judged whether a random-forest alert on income data was correct, with or without TreeSHAP explanations. Accuracy was 0.59 without and 0.61 with explanations, a non-significant difference ($p=0.346$). Further work shows that Shapley-based importance can be misread as causal~\cite{kumar2020problems} and that both LIME and SHAP can be manipulated to hide a model's reliance on a feature~\cite{slack2020fooling}. Finally, automation bias, the tendency to over-trust an automated recommendation, is well documented in human--automation research~\cite{parasuraman2010complacency}, so an explanation may increase acceptance of a flag as well as scrutiny of it.
+
+% ---------------------------------------------------------------------
+\section{Technical Approach}
+
+\subsection{Method of Analysis}
+We did not train a new model. Instead we conducted a structured case study of XGuardian, reading the paper, its appendices and the authors' released artefact~\cite{zhang2026artifact}, and verifying architectural details in the released code rather than relying on the paper's prose alone. For each claim that an explanation helps a reviewer, we asked three questions: \emph{what exactly is being explained}, \emph{what evidence shows the explanation is faithful to the model}, and \emph{what evidence shows it improves the human decision}. We compared it with~\cite{sousa2025minecraft} (detection without explanations) and~\cite{weerts2019human} (explanations tested with people).
+
+\subsection{The XGuardian Pipeline}
+Each time step carries eight inputs: the tick index, whether the player fired, whether they made a kill, horizontal and vertical aim velocity and acceleration, and the change in movement direction. A 96-tick elimination window (about 1.5\,s in CS2) is split into six-tick sliding windows with a stride of one. Table~\ref{tab:pipeline} summarises the stages as implemented.
+
+\begin{table}[htbp]
+\caption{XGuardian Stages and Their Explanations (From Released Code)}
+\begin{center}
+\begin{tabular}{@{}p{1.55cm}p{3.05cm}p{2.9cm}@{}}
+\toprule
+\textbf{Stage} & \textbf{Model} & \textbf{Explanation} \\
+\midrule
+Sliding window & 2 GRU layers (64, 32), 3 Conv1D layers (64 filters), dense, sigmoid & GradientExplainer per feature and tick \\
+Elimination & Dense (32, 16), sigmoid over window scores and feature summaries & Temporal squeezing of window attributions \\
+Match & Random forest, 100 trees, input: mean elimination score & TreeExplainer \\
+\bottomrule
+\end{tabular}
+\label{tab:pipeline}
+\end{center}
+\end{table}
+
+\subsection{Two Levels of Explanation}
+At the \emph{elimination level}, GradientExplainer attributes the GRU--CNN output to each of the eight features at each tick. Because the six-tick windows overlap, one tick can appear in up to six windows; the authors' temporal squeezing procedure averages these attributions per feature and tick, yielding up to $96\times8=768$ values per kill that are rendered as a coloured aim trajectory. At the \emph{match level}, TreeExplainer attributes the random forest's verdict to its inputs. In the default configuration the forest receives a single input, \texttt{original\_prediction\_avg}, the mean of the player's elimination scores.
+
+% ---------------------------------------------------------------------
+\section{Analysis and Discussion}
+
+\subsection{The Match Explanation Restates the Score}
+With one input feature, additivity forces $\phi_1=f(x)-\phi_0$: the match-level attribution is exactly the verdict minus the average verdict. It is faithful, but it gives the reviewer no information beyond the score itself. All of the explanatory content therefore sits at the elimination level, and a reviewer contesting a flag must work from per-kill trajectories. This is not a flaw in TreeSHAP; it is a consequence of what the final model is given. It does show that ``the system is explained with SHAP'' can overstate what a reviewer actually receives, and it echoes Rudin's argument~\cite{rudin2019stop} that in high-stakes settings a simple aggregation rule could be inspected directly without a post-hoc layer.
+
+\subsection{Detector Metrics Are Not Reviewer Outcomes}
+XGuardian reports mean results on CS2 of 88.4\% accuracy, 94.2\% weighted precision, 90.4\% weighted F1 and a 5.9\% ``weighted FPR'', with a best configuration of 90.7\% recall at a 4.1\% false-positive rate~\cite{zhang2026xguardian}.
+Inspecting the released evaluation script, we found that the reported weighted FPR is computed from column (predicted-class) totals, making it the complement of weighted precision rather than the conventional rate at which legitimate players are flagged~\cite{zhang2026artifact}.
+
+Even a correctly computed FPR does not describe a reviewer's workload. Consider an illustrative population in which 5\% of players cheat (an assumption, not a figure from the study). Out of 1{,}000 players, a detector with 90.7\% recall and a 4.1\% FPR flags about 45 of the 50 cheaters and 39 of the 950 legitimate players, so roughly 46\% of flags would be false. When cheating is rare, a large share of the cases reaching a reviewer may be innocent, which is precisely where explanations are supposed to help. The Minecraft results~\cite{sousa2025minecraft} illustrate the same gap from the other side: F1 near 99.7\% on 13 players cannot tell us how often fair players would be flagged at scale.
+
+\subsection{Human Evidence Is Thin}
+XGuardian's user study involved four former CS:GO Overwatch reviewers and six selected cases, two of them false positives~\cite{zhang2026xguardian}. With XGuardian's support, all four rejected one false flag; without it, three of four rejected a \emph{different} false flag. The study was designed to check that explanations did not bias reviewers towards accepting flags, and it supports that narrow claim. It cannot isolate an effect of SHAP: the cases differ between conditions, the support includes more than SHAP, and four reviewers give no statistical power. The only controlled test we found~\cite{weerts2019human} showed no significant benefit, albeit on a simpler task. The evidence that explanations reduce false accusations in anti-cheat is therefore anecdotal.
+
+\subsection{An Explanation Cannot Supply Missing Context}
+SHAP describes the model, not the world~\cite{kumar2020problems}. Suppose a player hears footsteps and pre-aims a corner before an opponent appears (our illustration, not a failure reported in~\cite{zhang2026xguardian}). An aim-only model never receives the sound cue, so a perfectly faithful attribution will highlight the sudden flick as suspicious. The explanation is correct about the model and misleading about the player. The course's treatment of counterfactual explanations is relevant here: people ask contrastive questions such as ``why cheating rather than skill?''~\cite{miller2019explanation}, and a feature attribution over aim kinematics cannot answer them when the distinguishing information lies outside the input. A second concern is that the tick index is itself an input, and the authors' ablation found that keeping it improved detection. An attribution to ``tick'' records \emph{when} in the window something happened, not \emph{what} the player did, and may be hard for a reviewer to interpret or may reflect a dataset regularity rather than behaviour.
+
+\subsection{Choice of Explainer}
+The authors prefer SHAP to LIME, citing LIME's sampling instability on interacting temporal data, but report no direct comparison~\cite{zhang2026xguardian}. We agree that LIME is a poor fit here: perturbing velocity independently of acceleration produces physically impossible trajectories, so the surrogate is fitted on inputs the model never sees in practice. However, SHAP is not automatically stable either. GradientExplainer samples background examples and interpolation points, temporal squeezing averages overlapping estimates, and the base value depends on which players form the background set, which raises a fairness question if that set under-represents high-skill play. Both methods can also be manipulated by an adversarial model~\cite{slack2020fooling}. Stability across seeds and background sets should be reported before attributions are used in decisions about players.
+
+\subsection{Proposed Evaluation}
+\label{sec:proposal}
+The question that matters is application-grounded~\cite{doshivelez2017rigorous}: do reviewers make fewer false accusations with explanations? We propose a randomised, counterbalanced study in which trained reviewers judge the same pool of cases, a mixture of verified cheaters and verified innocent players flagged by the detector. Every reviewer sees replays and detector scores; the manipulation is whether SHAP trajectories are shown. A third arm with randomly permuted attributions would test whether any benefit comes from the explanation's content or merely from its presence, a direct check on automation bias~\cite{parasuraman2010complacency}. The primary outcome is the rate of innocent cases judged as cheating; missed cheaters, review time and confidence are secondary, so that a ``benefit'' cannot come simply from rejecting more flags.
+
+% ---------------------------------------------------------------------
+\section{Conclusion and Limitations}
+
+Behavioural detectors still flag legitimate players, and explanations are the main mechanism offered for catching those errors before a ban. Our analysis suggests that explanations are useful for \emph{locating} evidence, since a per-tick trajectory tells a reviewer which moment to watch, but they are not evidence of cheating, and the match-level explanation in XGuardian's default configuration adds nothing beyond the score. Whether explanations reduce false accusations has not yet been shown; the study in Section~\ref{sec:proposal} would test it.
+
+\textit{Limitations.} This paper is an analysis of published work and released code; we did not train models, reproduce XGuardian's results or run a user study. Our assessment of the Minecraft system rests on its abstract only. We did not recompute the conventional false-positive rate from the released predictions, so our metric critique concerns the definition used, not a corrected value. The 5\% prevalence in Section~IV-B is illustrative. Our argument concerns cheats that alter aiming; visual cheats that leave aim unchanged, adversarial evasion of the detector, and the legal requirements of appeal processes are outside our scope. Finally, we discuss reviewer decisions, not player trust: whether explanations shown to banned players increase perceived fairness would need separate evidence.
+
+\clearpage
+\begin{thebibliography}{00}
+\bibitem{zhang2026xguardian} J. Zhang, C. Sun, and C. Qian, ``XGuardian: Towards generalized, explainable and more effective server-side anti-cheat in first-person shooter games,'' in \textit{Proc. 35th USENIX Security Symp.}, 2026. [Online]. Available: \url{https://www.usenix.org/system/files/usenixsecurity26-zhang-jiayi.pdf}
+\bibitem{sousa2025minecraft} Sousa, Ribeiro, and Reis, ``Deep learning anti-cheat system based on player behaviour for Minecraft,'' Springer, 2025, doi: 10.1007/978-3-031-81713-7\_17.
+\bibitem{doshivelez2017rigorous} F. Doshi-Velez and B. Kim, ``Towards a rigorous science of interpretable machine learning,'' 2017, \textit{arXiv:1702.08608}.
+\bibitem{gdpr2016} \textit{Regulation (EU) 2016/679 (General Data Protection Regulation)}, Art. 22, \textit{Off. J. Eur. Union}, L 119, 2016.
+\bibitem{lundberg2017unified} S. M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model predictions,'' in \textit{Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)}, vol. 30, 2017, pp. 4765--4774.
+\bibitem{shapley1953value} L. S. Shapley, ``A value for n-person games,'' in \textit{Contributions to the Theory of Games II}, H. W. Kuhn and A. W. Tucker, Eds. Princeton, NJ, USA: Princeton Univ. Press, 1953, pp. 307--317.
+\bibitem{lundberg2020trees} S. M. Lundberg \textit{et al.}, ``From local explanations to global understanding with explainable AI for trees,'' \textit{Nature Mach. Intell.}, vol. 2, no. 1, pp. 56--67, 2020.
+\bibitem{erion2021expected} G. Erion, J. D. Janizek, P. Sturmfels, S. M. Lundberg, and S.-I. Lee, ``Improving performance of deep learning models with axiomatic attribution priors and expected gradients,'' \textit{Nature Mach. Intell.}, vol. 3, pp. 620--631, 2021.
+\bibitem{ribeiro2016why} M. T. Ribeiro, S. Singh, and C. Guestrin, ```Why should I trust you?': Explaining the predictions of any classifier,'' in \textit{Proc. 22nd ACM SIGKDD Int. Conf. Knowl. Discovery Data Mining}, 2016, pp. 1135--1144.
+\bibitem{weerts2019human} H. J. P. Weerts, W. van Ipenburg, and M. Pechenizkiy, ``A human-grounded evaluation of SHAP for alert processing,'' 2019, \textit{arXiv:1907.03324}.
+\bibitem{kumar2020problems} I. E. Kumar, S. Venkatasubramanian, C. Scheidegger, and S. Friedler, ``Problems with Shapley-value-based explanations as feature importance measures,'' in \textit{Proc. 37th Int. Conf. Mach. Learn. (ICML)}, 2020, pp. 5491--5500.
+\bibitem{slack2020fooling} D. Slack, S. Hilgard, E. Jia, S. Singh, and H. Lakkaraju, ``Fooling LIME and SHAP: Adversarial attacks on post hoc explanation methods,'' in \textit{Proc. AAAI/ACM Conf. AI, Ethics, Soc. (AIES)}, 2020, pp. 180--186.
+\bibitem{parasuraman2010complacency} R. Parasuraman and D. H. Manzey, ``Complacency and bias in human use of automation: An attentional integration,'' \textit{Human Factors}, vol. 52, no. 3, pp. 381--410, 2010.
+\bibitem{zhang2026artifact} J. Zhang, C. Sun, and C. Qian, ``XGuardian artifact: Code and data,'' Zenodo, 2026, doi: 10.5281/zenodo.17845614.
+\bibitem{rudin2019stop} C. Rudin, ``Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead,'' \textit{Nature Mach. Intell.}, vol. 1, no. 5, pp. 206--215, 2019.
+\bibitem{miller2019explanation} T. Miller, ``Explanation in artificial intelligence: Insights from the social sciences,'' \textit{Artif. Intell.}, vol. 267, pp. 1--38, 2019.
+\end{thebibliography}
+
+\end{document}
