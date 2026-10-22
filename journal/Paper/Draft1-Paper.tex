@@ -128,10 +128,12 @@ receives, without any post-hoc method. This supports Rudin's
 argument~\cite{rudin2019stop} that, in high-stakes settings, a simple
 aggregation rule can be inspected directly.
  
-The elimination level does not fill the gap. The visual the reviewer actually sees for each kill is a heuristic pointer to the ticks that drove window scores, not a breakdown of the score a
-reviewer must contest. None of this is a flaw in SHAP; it follows from
-what each explainer is applied to. It does show that ``the system is
-explained with SHAP'' can overstate what a reviewer receives.
+The elimination level does not fill the gap. Its attributions explain
+the window model, not the elimination network that combines window
+scores with feature summaries, and after temporal squeezing they no
+longer sum to any model output. The attribution trajectory a reviewer
+sees therefore points to the ticks that drove window scores; it does
+not break down the score being contested.
 
 \subsection{Detector Metrics Are Not Reviewer Outcomes}
 XGuardian reports mean results on CS2 of 88.4\% accuracy, 94.2\% weighted precision, 90.4\% weighted F1 and a 5.9\% ``weighted FPR'', with a best configuration of 90.7\% recall at a 4.1\% false-positive rate~\cite{zhang2026xguardian}.
