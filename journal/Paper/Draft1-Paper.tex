@@ -112,28 +112,24 @@ Match & Random forest, 100 trees, input: mean elimination score & TreeExplainer 
 \end{table}
 
 \subsection{Two Levels of Explanation}
-At the \emph{elimination level}, GradientExplainer attributes the GRU--CNN output to each of the eight features at each tick. Because the six-tick windows overlap, one tick can appear in up to six windows; the authors' temporal squeezing procedure averages these attributions per feature and tick, yielding up to $96\times8=768$ values per kill that are rendered as a coloured aim trajectory. At the \emph{match level}, TreeExplainer attributes the random forest's verdict to its inputs. In the default configuration the forest receives a single input, \texttt{original\_prediction\_avg}, the mean of the player's elimination scores.
-
+At the \emph{elimination level}, GradientExplainer explains the window model: for each six-tick window, it measures how much each feature at each tick pushed that window's score up or down. A tick appears in up to six overlapping windows, so the authors average its values
+(temporal squeezing), giving up to $96\times8=768$ values per kill. 
+The reviewer sees these as an \emph{attribution trajectory}: the player's aim path, coloured by these values. The elimination score itself comes
+from a separate network that combines the window scores with summary features, and no attribution is reported for that network~\cite{zhang2026xguardian}.
 % ---------------------------------------------------------------------
 \section{Analysis and Discussion}
 
 \subsection{Neither Level Decomposes the Verdict}
 
-With one input feature, the match-level attribution is exactly the
-verdict minus the average verdict. It is faithful, but it tells the
-reviewer nothing beyond the score. Moreover, because the forest's input
-is a mean, kill $k$ of $n$ contributes exactly $s_k/n$ to it, so ranking
-kills by elimination score $s_k$ already decomposes what the forest
-receives, without any post-hoc method. This supports Rudin's
-argument~\cite{rudin2019stop} that, in high-stakes settings, a simple
-aggregation rule can be inspected directly.
- 
-The elimination level does not fill the gap. Its attributions explain
-the window model, not the elimination network that combines window
-scores with feature summaries, and after temporal squeezing they no
-longer sum to any model output. The attribution trajectory a reviewer
-sees therefore points to the ticks that drove window scores; it does
-not break down the score being contested.
+SHAP values add up to the prediction, so when a model has only one input, that input receives the whole prediction minus the average. 
+The match-level explanation therefore just restates the score. 
+Since the forest's one input is the average of the kill scores, listing the kills by score already shows what the verdict rests on, with no SHAP needed. 
+This supports Rudin's argument~\cite{rudin2019stop} that a simple rule can be inspected directly.
+
+The elimination level does not fill the gap. The attribution trajectory explains the window model, not the network that produces the elimination score. 
+After averaging across overlapping windows its values no longer add up to any one window's score. 
+It shows a reviewer \emph{where} to look in a kill, not \emph{why} the kill scored as it did. 
+None of this is a flaw in SHAP; it follows from what each explainer is applied to, but it shows that ``explained with SHAP'' can overstate what a reviewer receives.
 
 \subsection{Detector Metrics Are Not Reviewer Outcomes}
 XGuardian reports mean results on CS2 of 88.4\% accuracy, 94.2\% weighted precision, 90.4\% weighted F1 and a 5.9\% ``weighted FPR'', with a best configuration of 90.7\% recall at a 4.1\% false-positive rate~\cite{zhang2026xguardian}.
@@ -158,10 +154,9 @@ The question that matters is application-grounded~\cite{doshivelez2017rigorous}:
 % ---------------------------------------------------------------------
 \section{Conclusion and Limitations}
 
-Behavioural detectors still flag legitimate players, and explanations are the main mechanism offered for catching those errors before a ban. Our analysis suggests that explanations are useful for \emph{locating} evidence, since a per-tick trajectory tells a reviewer which moment to watch, but they are not evidence of cheating, and the match-level explanation in XGuardian's default configuration adds nothing beyond the score. Whether explanations reduce false accusations has not yet been shown; the study in Section~\ref{sec:proposal} would test it.
+Behavioural detectors still flag legitimate players, and explanations are the main mechanism offered for catching those errors before a ban. We argue that explanations are useful for \emph{locating} evidence, since the attribution trajectory tells a reviewer which moment to watch, but they explain the flag, not the player, and are not evidence of cheating; in XGuardian, neither level of explanation breaks down the verdict a reviewer must contest. Whether explanations reduce false accusations has not yet been shown; the study in Section~\ref{sec:proposal} would test it.
 
-\textit{Limitations.} This paper is an analysis of published work and released code; we did not train models, reproduce XGuardian's results or run a user study. Our assessment of the Minecraft system rests on its abstract only. We did not recompute the conventional false-positive rate from the released predictions, so our metric critique concerns the definition used, not a corrected value. The 5\% prevalence in Section~IV-B is illustrative. Our argument concerns cheats that alter aiming; visual cheats that leave aim unchanged, adversarial evasion of the detector, and the legal requirements of appeal processes are outside our scope. Finally, we discuss reviewer decisions, not player trust: whether explanations shown to banned players increase perceived fairness would need separate evidence.
-
+\textit{Limitations.} This paper is an analysis of published work; we could not access XGuardian's released code, and we did not train models, reproduce its results, run the explainers or run a user study. Our assessment of the Minecraft system rests on its abstract only. Our metric critique is inferred from the reported figures, so it concerns the definition used, not a corrected value. The 5\% prevalence in Section~\ref{sec:metrics} is illustrative. Our argument concerns cheats that alter aiming; visual cheats that leave aim unchanged, adversarial evasion of the detector, and the legal requirements of appeal processes are outside our scope. Finally, we discuss reviewer decisions, not player trust: whether explanations shown to banned players increase perceived fairness would need separate evidence.
 \clearpage
 \begin{thebibliography}{00}
 \bibitem{zhang2026xguardian} J. Zhang, C. Sun, and C. Qian, ``XGuardian: Towards generalized, explainable and more effective server-side anti-cheat in first-person shooter games,'' in \textit{Proc. 35th USENIX Security Symp.}, 2026. [Online]. Available: \url{https://www.usenix.org/system/files/usenixsecurity26-zhang-jiayi.pdf}
