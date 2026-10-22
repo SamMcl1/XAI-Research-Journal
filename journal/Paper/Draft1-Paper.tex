@@ -38,7 +38,13 @@ Limerick, Ireland \\
 \maketitle
 
 \begin{abstract}
-Machine learning anti-cheat systems increasingly flag players from behavioural telemetry, and some now attach post-hoc explanations so that a human reviewer can check a flag before an account is banned. This paper asks whether such explanations can be expected to help reviewers recognise false positives. We analyse XGuardian, a server-side aim-assist detector for first-person shooters explained with gradient-based SHAP and TreeSHAP, tracing its pipeline against the authors' released code, and contrast it with a Minecraft detector and a human-grounded evaluation of SHAP. Our analysis finds that the match-level explanation in the default configuration restates the detector score rather than adding evidence, that headline detection metrics do not measure the reviewer outcome that matters, and that the available human-subject evidence is too small to show that explanations reduce false accusations. We argue that explanations are best treated as a tool for locating evidence rather than as evidence of cheating, and we propose a randomised reviewer study to measure their effect on innocent players directly.
+Machine learning anti-cheat systems increasingly flag players from behavioural telemetry, and some now attach post-hoc explanations so that a human reviewer can check a flag before an account is banned. This paper asks whether such explanations can be expected to help reviewers recognise false positives. 
+We analyse XGuardian, a server-side aim-assist detector for first-person shooters explained with gradient-based SHAP and TreeSHAP, tracing its pipeline against the authors' released code, and contrast it with a Minecraft detector and a human-grounded evaluation of SHAP. 
+Our analysis finds that the level of explanation provided by XGuardian does not break down the model's decision in a way that is useful for human reviewers.
+The match-level explanation simply restates the score, while the per-tick attributions explain the window model rather than the elimination score. 
+We also find that the reported detection metrics do not measure the reviewer outcome that matters. The available human-subject evidence is too small to show that explanations reduce false accusations.
+
+We argue that explanations are best treated as a tool for locating evidence rather than as evidence of cheating, and we propose a randomised reviewer study to measure their effect on innocent players directly.
 \end{abstract}
 
 \begin{IEEEkeywords}
